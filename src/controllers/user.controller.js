@@ -17,7 +17,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
 
     const { userName, fullName, email, password } = req.body
-    console.log("email: ", email);
 
     //2.validation required field
     if ([userName, email, fullName, password].some((fields) => fields.trim() === "")) {
@@ -30,9 +29,7 @@ const registerUser = asyncHandler(async (req, res) => {
     if (existedUser) {
         throw new ApiError(409, "User with username or email already exists")
     }
-    // console.log(req.files);
-
-
+        
     // 4.check for avatar file
     const avatarLocalPath = req.files?.avatar[0]?.path;
     // const coverImageLocalPath = req.files?.coverImage[0]?.path
@@ -41,18 +38,22 @@ const registerUser = asyncHandler(async (req, res) => {
     if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
         coverImageLocalPath = req.files.coverImage[0].path
     }
-
+    
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is required")
     }   
-
+    
+    //5. upload then on cloudinary, avatar.
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
+    
     if (!avatar) {
         throw new ApiError(400, "Avatar file is required")
     }
+
+    //6. create user object - create entry in db.
     const user = await User.create({
         userName: userName.toLowerCase(),
         fullName: fullName,
@@ -61,7 +62,8 @@ const registerUser = asyncHandler(async (req, res) => {
         avatar: avatar.url,
         coverImage: coverImage.url || ""
     })
-
+    
+    //7. remove password and refresh token field from res.
     const createdUser = await User.findById(user._id).select("-password -refreshToken")
     if (!createdUser) {
         throw new ApiError(500, "Something went wrong while registering the user")
